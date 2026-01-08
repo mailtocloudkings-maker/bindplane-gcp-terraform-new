@@ -16,24 +16,31 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
-      - uses: actions/checkout@v4
+      # Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
+      # Authenticate to GCP
       - name: Authenticate to GCP
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           chmod 600 gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
+      # Terraform Init
       - name: Terraform Init
         run: terraform init -reconfigure
 
+      # Terraform Apply
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve -lock=false \
@@ -49,21 +56,28 @@ jobs:
             -var="bindplane_license_key=${{ secrets.BINDPLANE_LICENSE_KEY }}" \
             -var="credentials_file=$(pwd)/gcp-key.json"
 
+      # Install PostgreSQL and BindPlane on VM
       - name: Install PostgreSQL & BindPlane
         run: |
           VM_IP=$(terraform output -raw vm_external_ip)
-          SSH_KEY=$(terraform output -raw ssh_private_key)
+          echo "Writing SSH private key..."
+          terraform output -raw ssh_private_key > temp_vm_key.pem
           chmod 600 temp_vm_key.pem
-          echo "$SSH_KEY" > temp_vm_key.pem
 
+          echo "Uploading install script to VM..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem install_bindplane.sh ubuntu@$VM_IP:~
-          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP "bash ~/install_bindplane.sh \
-            '${{ github.event.inputs.db_user }}' \
-            '${{ github.event.inputs.db_pass }}' \
-            '${{ github.event.inputs.bp_admin_user }}' \
-            '${{ github.event.inputs.bp_admin_pass }}' \
-            '${{ secrets.BINDPLANE_LICENSE_KEY }}'"
 
+          echo "Running install script on VM..."
+          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP << EOF
+            bash ~/install_bindplane.sh \
+              '${{ github.event.inputs.db_user }}' \
+              '${{ github.event.inputs.db_pass }}' \
+              '${{ github.event.inputs.bp_admin_user }}' \
+              '${{ github.event.inputs.bp_admin_pass }}' \
+              '${{ secrets.BINDPLANE_LICENSE_KEY }}'
+EOF
+
+      # Show final outputs
       - name: Show Outputs
         run: |
           echo "============================"
@@ -71,4 +85,5 @@ jobs:
           echo "GCS Bucket: $(terraform output -raw gcs_bucket_name)"
           echo "VM External IP: $(terraform output -raw vm_external_ip)"
           echo "PostgreSQL and BindPlane installed on VM."
+          echo "You can SSH into VM using the private key from Terraform output."
           echo "============================"
