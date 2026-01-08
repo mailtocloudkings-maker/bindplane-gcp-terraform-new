@@ -3,15 +3,33 @@ name: BindPlane Full Infra Setup
 on:
   workflow_dispatch:
     inputs:
-      project_id: { required: true }
-      region: { default: us-central1 }
-      zone: { default: us-central1-a }
-      vm_name: { required: true }
-      bucket_name: { required: true }
-      db_user: { required: true }
-      db_pass: { required: true }
-      bp_admin_user: { required: true }
-      bp_admin_pass: { required: true }
+      project_id:
+        description: "GCP Project ID"
+        required: true
+      region:
+        description: "GCP Region"
+        default: us-central1
+      zone:
+        description: "GCP Zone"
+        default: us-central1-a
+      vm_name:
+        description: "BindPlane VM Name"
+        required: true
+      bucket_name:
+        description: "GCS Bucket Name"
+        required: true
+      db_user:
+        description: "PostgreSQL Username"
+        required: true
+      db_pass:
+        description: "PostgreSQL Password"
+        required: true
+      bp_admin_user:
+        description: "BindPlane Admin Username"
+        required: true
+      bp_admin_pass:
+        description: "BindPlane Admin Password"
+        required: true
 
 jobs:
   deploy:
@@ -19,28 +37,38 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      # -------------------
       # Checkout repository
+      # -------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # -------------------
       # Setup Terraform
+      # -------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
+      # -------------------
       # Authenticate to GCP
+      # -------------------
       - name: Authenticate to GCP
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           chmod 600 gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
+      # -------------------
       # Terraform Init
+      # -------------------
       - name: Terraform Init
         run: terraform init -reconfigure
 
+      # -------------------
       # Terraform Apply
+      # -------------------
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve -lock=false \
@@ -56,7 +84,9 @@ jobs:
             -var="bindplane_license_key=${{ secrets.BINDPLANE_LICENSE_KEY }}" \
             -var="credentials_file=$(pwd)/gcp-key.json"
 
-      # Install PostgreSQL and BindPlane on VM
+      # -------------------
+      # Install PostgreSQL & BindPlane on VM
+      # -------------------
       - name: Install PostgreSQL & BindPlane
         run: |
           echo "Fetching VM external IP and private key..."
@@ -77,7 +107,9 @@ jobs:
               '${{ secrets.BINDPLANE_LICENSE_KEY }}'
 EOF
 
-      # Show final outputs
+      # -------------------
+      # Show Outputs
+      # -------------------
       - name: Show Outputs
         run: |
           echo "============================"
