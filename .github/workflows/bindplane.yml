@@ -3,75 +3,40 @@ name: BindPlane Full Infra Setup
 on:
   workflow_dispatch:
     inputs:
-      project_id:
-        description: "GCP Project ID"
-        required: true
-      region:
-        description: "GCP Region"
-        default: us-central1
-      zone:
-        description: "GCP Zone"
-        default: us-central1-a
-      vm_name:
-        description: "BindPlane VM Name"
-        required: true
-      bucket_name:
-        description: "GCS Bucket Name"
-        required: true
-      db_user:
-        description: "PostgreSQL Username"
-        required: true
-      db_pass:
-        description: "PostgreSQL Password"
-        required: true
-      bp_admin_user:
-        description: "BindPlane Admin Username"
-        required: true
-      bp_admin_pass:
-        description: "BindPlane Admin Password"
-        required: true
+      project_id: { required: true }
+      region: { default: us-central1 }
+      zone: { default: us-central1-a }
+      vm_name: { required: true }
+      bucket_name: { required: true }
+      db_user: { required: true }
+      db_pass: { required: true }
+      bp_admin_user: { required: true }
+      bp_admin_pass: { required: true }
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
 
     steps:
-      # -------------------
-      # Checkout repository
-      # -------------------
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # -------------------
-      # Setup Terraform
-      # -------------------
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # -------------------
-      # Authenticate to GCP
-      # -------------------
       - name: Authenticate to GCP
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           chmod 600 gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      # -------------------
-      # Terraform Init
-      # -------------------
       - name: Terraform Init
         run: terraform init -reconfigure
 
-      # -------------------
-      # Terraform Apply
-      # -------------------
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve -lock=false \
+          terraform apply -auto-approve \
             -var="project_id=${{ github.event.inputs.project_id }}" \
             -var="region=${{ github.event.inputs.region }}" \
             -var="zone=${{ github.event.inputs.zone }}" \
@@ -84,32 +49,21 @@ jobs:
             -var="bindplane_license_key=${{ secrets.BINDPLANE_LICENSE_KEY }}" \
             -var="credentials_file=$(pwd)/gcp-key.json"
 
-      # -------------------
-      # Install PostgreSQL & BindPlane on VM
-      # -------------------
       - name: Install PostgreSQL & BindPlane
         run: |
-          echo "Fetching VM external IP and private key..."
           VM_IP=$(terraform output -raw vm_external_ip)
-          terraform output -raw ssh_private_key > temp_vm_key.pem
+          SSH_KEY=$(terraform output -raw ssh_private_key)
           chmod 600 temp_vm_key.pem
+          echo "$SSH_KEY" > temp_vm_key.pem
 
-          echo "Uploading install script to VM..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem install_bindplane.sh ubuntu@$VM_IP:~
+          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP "bash ~/install_bindplane.sh \
+            '${{ github.event.inputs.db_user }}' \
+            '${{ github.event.inputs.db_pass }}' \
+            '${{ github.event.inputs.bp_admin_user }}' \
+            '${{ github.event.inputs.bp_admin_pass }}' \
+            '${{ secrets.BINDPLANE_LICENSE_KEY }}'"
 
-          echo "Running install script on VM..."
-          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP << EOF
-            bash ~/install_bindplane.sh \
-              '${{ github.event.inputs.db_user }}' \
-              '${{ github.event.inputs.db_pass }}' \
-              '${{ github.event.inputs.bp_admin_user }}' \
-              '${{ github.event.inputs.bp_admin_pass }}' \
-              '${{ secrets.BINDPLANE_LICENSE_KEY }}'
-EOF
-
-      # -------------------
-      # Show Outputs
-      # -------------------
       - name: Show Outputs
         run: |
           echo "============================"
@@ -117,5 +71,4 @@ EOF
           echo "GCS Bucket: $(terraform output -raw gcs_bucket_name)"
           echo "VM External IP: $(terraform output -raw vm_external_ip)"
           echo "PostgreSQL and BindPlane installed on VM."
-          echo "You can SSH into VM using the private key from Terraform output."
           echo "============================"
