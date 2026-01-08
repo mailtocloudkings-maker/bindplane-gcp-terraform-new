@@ -9,8 +9,7 @@ BP_LICENSE_KEY="$5"
 
 echo "===== INSTALLING POSTGRESQL ====="
 
-sudo apt-get install -y software-properties-common
-sudo add-apt-repository universe -y
+
 
 sudo apt-get install -y postgresql postgresql-contrib expect curl
 
@@ -28,14 +27,18 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER
 sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;" || true
 sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" || true
 
-sudo -i bash <<'ROOTSCRIPT'
-cd /root
-curl -fsSlL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-bash install-linux.sh --version 1.96.7 --init
-rm -f install-linux.sh
-ROOTSCRIPT
+### Install BindPlane (REAL METHOD) ###
+cd /tmp
+curl -L -o bindplane.deb https://storage.googleapis.com/bindplane-op-releases/bindplane/1.96.7/bindplane-ee_1.96.7_amd64.deb
+sudo dpkg -i bindplane.deb
+sudo apt-get install -f -y
 
-sudo -i BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
+### Verify binary ###
+which bindplane
+ls -l /usr/bin/bindplane
+
+### Automated init ###
+sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
 $BP_LICENSE_KEY
 0.0.0.0
 3001
