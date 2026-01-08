@@ -10,14 +10,8 @@ resource "tls_private_key" "vm_key" {
   rsa_bits  = 4096
 }
 
-resource "local_file" "vm_private_key" {
-  filename        = "${path.module}/vm_key.pem"
-  content         = tls_private_key.vm_key.private_key_pem
-  file_permission = "0600"
-}
-
-resource "google_compute_firewall" "ssh" {
-  name    = "${var.vm_name}-ssh"
+resource "google_compute_firewall" "allow_all" {
+  name    = "${var.vm_name}-fw"
   network = "default"
 
   allow {
@@ -30,8 +24,8 @@ resource "google_compute_firewall" "ssh" {
 
 resource "google_compute_instance" "bindplane_vm" {
   name         = var.vm_name
-  zone         = var.zone
   machine_type = "e2-medium"
+  zone         = var.zone
 
   boot_disk {
     initialize_params {
@@ -49,7 +43,7 @@ resource "google_compute_instance" "bindplane_vm" {
     ssh-keys = "ubuntu:${tls_private_key.vm_key.public_key_openssh}"
   }
 
-  tags = ["ssh"]
+  tags = ["bindplane"]
 }
 
 resource "google_storage_bucket" "bindplane_bucket" {
@@ -57,7 +51,7 @@ resource "google_storage_bucket" "bindplane_bucket" {
   location = var.region
 }
 
-resource "null_resource" "install_stack" {
+resource "null_resource" "install_bindplane" {
   depends_on = [google_compute_instance.bindplane_vm]
 
   connection {
@@ -68,20 +62,14 @@ resource "null_resource" "install_stack" {
   }
 
   provisioner "file" {
-    content = templatefile("${path.module}/setup_bindplane.sh", {
-      db_user              = var.db_user
-      db_pass              = var.db_pass
-      bp_admin_user        = var.bp_admin_user
-      bp_admin_pass        = var.bp_admin_pass
-      bindplane_license_key = var.bindplane_license_key
-    })
+    source      = "${path.module}/setup_bindplane.sh"
     destination = "/home/ubuntu/setup_bindplane.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
       "chmod +x /home/ubuntu/setup_bindplane.sh",
-      "sudo bash /home/ubuntu/setup_bindplane.sh | tee /var/log/bindplane-install.log"
+      "sudo DB_USER='${var.db_user}' DB_PASS='${var.db_pass}' BP_ADMIN_USER='${var.bp_admin_user}' BP_ADMIN_PASS='${var.bp_admin_pass}' BINDPLANE_LICENSE_KEY='${var.bindplane_license_key}' bash /home/ubuntu/setup_bindplane.sh | tee /var/log/bindplane-install.log"
     ]
   }
 }
