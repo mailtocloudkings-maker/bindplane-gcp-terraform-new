@@ -59,8 +59,8 @@ jobs:
       # Install PostgreSQL and BindPlane on VM
       - name: Install PostgreSQL & BindPlane
         run: |
+          echo "Fetching VM external IP and private key..."
           VM_IP=$(terraform output -raw vm_external_ip)
-          echo "Writing SSH private key..."
           terraform output -raw ssh_private_key > temp_vm_key.pem
           chmod 600 temp_vm_key.pem
 
