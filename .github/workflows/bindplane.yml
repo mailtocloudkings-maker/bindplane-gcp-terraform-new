@@ -16,7 +16,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
 
       - name: Terraform Apply
         run: |
-          terraform apply -auto-approve \
+          terraform apply -auto-approve -lock=false \
             -var="project_id=${{ github.event.inputs.project_id }}" \
             -var="region=${{ github.event.inputs.region }}" \
             -var="zone=${{ github.event.inputs.zone }}" \
@@ -51,18 +51,23 @@ jobs:
 
       - name: Install PostgreSQL & BindPlane
         run: |
+          echo "Fetching VM details from Terraform outputs..."
           VM_IP=$(terraform output -raw vm_external_ip)
-          SSH_KEY=$(terraform output -raw ssh_private_key)
+          terraform output -raw ssh_private_key > temp_vm_key.pem
           chmod 600 temp_vm_key.pem
-          echo "$SSH_KEY" > temp_vm_key.pem
 
+          echo "Uploading BindPlane installation script to VM..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem install_bindplane.sh ubuntu@$VM_IP:~
-          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP "bash ~/install_bindplane.sh \
-            '${{ github.event.inputs.db_user }}' \
-            '${{ github.event.inputs.db_pass }}' \
-            '${{ github.event.inputs.bp_admin_user }}' \
-            '${{ github.event.inputs.bp_admin_pass }}' \
-            '${{ secrets.BINDPLANE_LICENSE_KEY }}'"
+
+          echo "Running installation script on VM..."
+          ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP << EOF
+            bash ~/install_bindplane.sh \
+              '${{ github.event.inputs.db_user }}' \
+              '${{ github.event.inputs.db_pass }}' \
+              '${{ github.event.inputs.bp_admin_user }}' \
+              '${{ github.event.inputs.bp_admin_pass }}' \
+              '${{ secrets.BINDPLANE_LICENSE_KEY }}'
+EOF
 
       - name: Show Outputs
         run: |
@@ -70,5 +75,8 @@ jobs:
           echo "✅ BindPlane infrastructure deployed successfully!"
           echo "GCS Bucket: $(terraform output -raw gcs_bucket_name)"
           echo "VM External IP: $(terraform output -raw vm_external_ip)"
+          echo "PostgreSQL user: ${{ github.event.inputs.db_user }}"
+          echo "BindPlane Admin user: ${{ github.event.inputs.bp_admin_user }}"
           echo "PostgreSQL and BindPlane installed on VM."
+          echo "Use the SSH private key from Terraform output to access the VM if needed."
           echo "============================"
