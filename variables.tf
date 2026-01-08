@@ -3,4 +3,12 @@ variable "region" {}
 variable "zone" {}
 variable "vm_name" {}
 variable "bucket_name" {}
+
+variable "db_user" {}
+variable "db_pass" {}
+
+variable "bp_admin_user" {}
+variable "bp_admin_pass" {}
+
+variable "bindplane_license_key" {}
 variable "credentials_file" {}
