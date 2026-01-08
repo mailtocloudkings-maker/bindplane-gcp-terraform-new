@@ -71,7 +71,7 @@ jobs:
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem setup_bindplane.sh ubuntu@$VM_IP:~
 
           ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP \
-            "bash ~/setup_bindplane.sh \
+            "sudo bash ~/setup_bindplane.sh \
               '${{ github.event.inputs.db_user }}' \
               '${{ github.event.inputs.db_pass }}' \
               '${{ github.event.inputs.bp_admin_user }}' \
@@ -84,4 +84,5 @@ jobs:
           echo "BindPlane deployed successfully!"
           echo "Bucket: $(terraform output -raw gcs_bucket_name)"
           echo "VM IP : $(terraform output -raw vm_external_ip)"
+          echo "PostgreSQL and BindPlane installed on VM."
           echo "============================"
