@@ -19,26 +19,21 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      # Checkout repo
       - uses: actions/checkout@v4
 
-      # Setup Terraform
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      # Authenticate to GCP
       - name: Authenticate to GCP
         run: |
           echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
           chmod 600 gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
-      # Terraform Init
       - name: Terraform Init
         run: terraform init -reconfigure
 
-      # Terraform Apply
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve -lock=false \
@@ -54,28 +49,27 @@ jobs:
             -var="bindplane_license_key=${{ secrets.BINDPLANE_LICENSE_KEY }}" \
             -var="credentials_file=$(pwd)/gcp-key.json"
 
-      # Wait for SSH to become available
+      - name: Prepare SSH Key
+        run: |
+          terraform output -raw ssh_private_key > temp_vm_key.pem
+          chmod 600 temp_vm_key.pem
+
       - name: Wait for VM SSH
         run: |
           VM_IP=$(terraform output -raw vm_external_ip)
           echo "Waiting for SSH on $VM_IP..."
-          for i in {1..20}; do
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i <(echo "$(terraform output -raw ssh_private_key)") ubuntu@$VM_IP 'echo SSH ready' && break
-            echo "SSH not ready, retrying ($i/20)..."
+          for i in {1..30}; do
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i temp_vm_key.pem ubuntu@$VM_IP "echo SSH ready" && break
+            echo "SSH not ready ($i/30)..."
             sleep 10
           done
 
-      # Upload and run BindPlane install script
       - name: Install PostgreSQL & BindPlane
         run: |
           VM_IP=$(terraform output -raw vm_external_ip)
-          echo "$(terraform output -raw ssh_private_key)" > temp_vm_key.pem
-          chmod 600 temp_vm_key.pem
 
-          echo "Uploading BindPlane installation script..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem setup_bindplane.sh ubuntu@$VM_IP:~
 
-          echo "Running BindPlane installation script..."
           ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP \
             "bash ~/setup_bindplane.sh \
               '${{ github.event.inputs.db_user }}' \
@@ -84,12 +78,10 @@ jobs:
               '${{ github.event.inputs.bp_admin_pass }}' \
               '${{ secrets.BINDPLANE_LICENSE_KEY }}'"
 
-      # Show outputs
       - name: Show Outputs
         run: |
           echo "============================"
-          echo "✅ BindPlane infrastructure deployed successfully!"
-          echo "GCS Bucket: $(terraform output -raw gcs_bucket_name)"
-          echo "VM External IP: $(terraform output -raw vm_external_ip)"
-          echo "PostgreSQL and BindPlane installed on VM."
+          echo "BindPlane deployed successfully!"
+          echo "Bucket: $(terraform output -raw gcs_bucket_name)"
+          echo "VM IP : $(terraform output -raw vm_external_ip)"
           echo "============================"
