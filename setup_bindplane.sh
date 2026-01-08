@@ -22,15 +22,10 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER
 sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;"
 sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;"
 
-
-sudo bash <<ROOT
-set -eux
-
+### ---------------- INSTALL BINDPLANE ---------------- ###
 cd /tmp
-curl -fsSlL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-
-# Use pseudo-tty so --init wizard works
-script -q -c "bash install-linux.sh --version 1.96.7 --init" /dev/null <<EOF
+curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
+bash install-linux.sh --version 1.96.7 --init <<EOF
 y
 $BP_LICENSE_KEY
 y
@@ -39,6 +34,7 @@ y
 $BP_ADMIN_USER
 $BP_ADMIN_PASS
 $BP_ADMIN_PASS
+
 
 disable
 100
@@ -49,13 +45,36 @@ y
 EOF
 
 rm -f install-linux.sh
-ROOT
 
-########################
-# START SERVICE
-########################
-sudo systemctl enable bindplane
-sudo systemctl restart bindplane
+### ---------------- CREATE SERVICE USER ---------------- ###
+useradd -r -s /bin/false bindplane || true
+mkdir -p /var/lib/bindplane
+chown -R bindplane:bindplane /var/lib/bindplane /etc/bindplane
 
-echo "===== INSTALL COMPLETE ====="
+### ---------------- CREATE SYSTEMD SERVICE ---------------- ###
+tee /etc/systemd/system/bindplane.service >/dev/null <<'EOF'
+[Unit]
+Description=BindPlane Server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=bindplane
+Group=bindplane
+ExecStart=/usr/local/bin/bindplane server --config /etc/bindplane/config.yaml
+Restart=always
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+### ---------------- START SERVICE ---------------- ###
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable bindplane
+systemctl restart bindplane
+
+### ---------------- VERIFY ---------------- ###
+systemctl is-active postgresql
 systemctl is-active bindplane
