@@ -7,7 +7,7 @@ BP_ADMIN_USER="$3"
 BP_ADMIN_PASS="$4"
 BP_LICENSE_KEY="$5"
 
-echo "===== INSTALLING DEPENDENCIES ====="
+echo "===== INSTALLING POSTGRESQL ====="
 
 sudo apt-get install -y software-properties-common
 sudo add-apt-repository universe -y
@@ -17,30 +17,30 @@ sudo apt-get install -y postgresql postgresql-contrib expect curl
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
-sleep 5
-
 echo "===== CREATING DATABASE ====="
-sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='bindplane'" | grep -q 1 || \
-  sudo -u postgres psql -c "CREATE DATABASE bindplane;"
+sudo -u postgres psql -c "CREATE DATABASE bindplane;" || true
 
 echo "===== CREATING USER ====="
-sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1 || \
-  sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';"
+sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';" || true
 
 echo "===== GRANTING PRIVILEGES ====="
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER;"
-sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;"
-sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER;" || true
+sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;" || true
+sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" || true
 
 echo "===== INSTALLING BINDPLANE ====="
 sudo curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o /tmp/install-linux.sh
 sudo bash /tmp/install-linux.sh --version 1.96.7 --init || true
 
+echo "===== VERIFYING BINDPLANE BINARY ====="
+which bindplane
+ls -l /usr/bin/bindplane
+
 echo "===== INITIALIZING BINDPLANE (AUTOMATED) ====="
 sudo expect <<EOF
-set timeout 180
+set timeout 300
 
-spawn sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/local/bin/bindplane init server --config /etc/bindplane/config.yaml
+spawn sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml
 
 expect "License Key"
 send "$BP_LICENSE_KEY\r"
@@ -55,7 +55,7 @@ expect "Remote URL"
 send "\r"
 
 expect "authentication method"
-send "\r"
+send "Single User\r"
 
 expect "Username"
 send "$BP_ADMIN_USER\r"
@@ -82,7 +82,7 @@ expect "Postgres SSL mode"
 send "\r"
 
 expect "Maximum Number of Database Connections"
-send "\r"
+send "100\r"
 
 expect "PostgreSQL Username"
 send "$DB_USER\r"
@@ -96,12 +96,10 @@ send "\r"
 expect eof
 EOF
 
-echo "===== STARTING BINDPLANE SERVICE ====="
+echo "===== STARTING BINDPLANE ====="
 sudo systemctl enable bindplane
 sudo systemctl restart bindplane
 
-sleep 5
-
 echo "===== FINAL STATUS ====="
-systemctl is-active postgresql
-systemctl is-active bindplane
+sudo systemctl status postgresql --no-pager
+sudo systemctl status bindplane --no-pager
