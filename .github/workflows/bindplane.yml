@@ -59,8 +59,11 @@ jobs:
         run: |
           VM_IP=$(terraform output -raw vm_external_ip)
           echo "Waiting for SSH on $VM_IP..."
+          terraform output -raw ssh_private_key > temp_vm_key.pem
+          chmod 600 temp_vm_key.pem
+
           for i in {1..20}; do
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i <(echo "$(terraform output -raw ssh_private_key)") ubuntu@$VM_IP 'echo SSH ready' && break
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i temp_vm_key.pem ubuntu@$VM_IP 'echo SSH is ready' && break
             echo "SSH not ready, retrying ($i/20)..."
             sleep 10
           done
@@ -69,10 +72,6 @@ jobs:
       - name: Install PostgreSQL & BindPlane
         run: |
           VM_IP=$(terraform output -raw vm_external_ip)
-          SSH_KEY=$(terraform output -raw ssh_private_key)
-          echo "$SSH_KEY" > temp_vm_key.pem
-          chmod 600 temp_vm_key.pem
-
           echo "Uploading BindPlane installation script to VM..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem setup_bindplane.sh ubuntu@$VM_IP:~
 
