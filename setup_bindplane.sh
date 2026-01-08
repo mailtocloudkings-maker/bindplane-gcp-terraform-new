@@ -11,7 +11,8 @@ echo "===== INSTALL POSTGRESQL ====="
 apt-get update -y
 apt-get install -y postgresql postgresql-contrib curl
 
-systemctl start postgresql
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
 
 echo "===== CREATE POSTGRES USER & DATABASE ====="
 sudo -u postgres psql <<EOF
@@ -34,9 +35,10 @@ BINDPLANE_LICENSE_KEY="$BP_LICENSE_KEY" bash install-linux.sh --version 1.96.7 -
   --admin-user "$BP_ADMIN_USER" --admin-password "$BP_ADMIN_PASS"
 rm install-linux.sh
 
-systemctl restart bindplane-server
-systemctl restart bindplane-agent
+
+sudo systemctl enable bindplane
+sudo systemctl restart bindplane
 
 echo "===== SERVICE STATUS ====="
 systemctl is-active postgresql
-systemctl is-active bindplane-server
+systemctl is-active bindplane
