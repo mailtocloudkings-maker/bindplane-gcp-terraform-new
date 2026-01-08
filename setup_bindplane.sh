@@ -28,78 +28,32 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER
 sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;" || true
 sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" || true
 
-echo "===== INSTALLING BINDPLANE ====="
-sudo curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o /tmp/install-linux.sh
-sudo bash /tmp/install-linux.sh --version 1.96.7 --init || true
+sudo -i bash <<'ROOTSCRIPT'
+cd /root
+curl -fsSlL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
+bash install-linux.sh --version 1.96.7 --init
+rm -f install-linux.sh
+ROOTSCRIPT
 
-echo "===== VERIFYING BINDPLANE BINARY ====="
-which bindplane
-ls -l /usr/bin/bindplane
-
-echo "===== INITIALIZING BINDPLANE (AUTOMATED) ====="
-sudo expect <<EOF
-set timeout 300
-
-spawn sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml
-
-expect "License Key"
-send "$BP_LICENSE_KEY\r"
-
-expect "Server Host"
-send "\r"
-
-expect "Server Port"
-send "3001\r"
-
-expect "Remote URL"
-send "\r"
-
-expect "authentication method"
-send "Single User\r"
-
-expect "Username"
-send "$BP_ADMIN_USER\r"
-
-expect "Password"
-send "$BP_ADMIN_PASS\r"
-
-expect "Confirm password"
-send "$BP_ADMIN_PASS\r"
-
-expect "Storage Type"
-send "\r"
-
-expect "PostgreSQL Host"
-send "\r"
-
-expect "PostgreSQL Port"
-send "\r"
-
-expect "PostgreSQL Database Name"
-send "\r"
-
-expect "Postgres SSL mode"
-send "\r"
-
-expect "Maximum Number of Database Connections"
-send "100\r"
-
-expect "PostgreSQL Username"
-send "$DB_USER\r"
-
-expect "PostgreSQL Password"
-send "$DB_PASS\r"
-
-expect "Event Bus Type"
-send "\r"
-
-expect eof
+sudo -i BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
+$BP_LICENSE_KEY
+0.0.0.0
+3001
+http://$(hostname -I | awk '{print $1}'):3001
+Single User
+$BP_ADMIN_USER
+$BP_ADMIN_PASS
+$BP_ADMIN_PASS
+postgres
+localhost
+5432
+bindplane
+disable
+100
+$DB_USER
+$DB_PASS
+local
 EOF
 
-echo "===== STARTING BINDPLANE ====="
 sudo systemctl enable bindplane
 sudo systemctl restart bindplane
-
-echo "===== FINAL STATUS ====="
-sudo systemctl status postgresql --no-pager
-sudo systemctl status bindplane --no-pager
