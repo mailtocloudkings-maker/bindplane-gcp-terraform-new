@@ -23,11 +23,14 @@ sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $
 sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;"
 
 
-echo "===== INSTALLING BINDPLANE SERVER ====="
-sudo -i bash
+sudo bash <<ROOT
+set -eux
+
 cd /tmp
-curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-bash install-linux.sh --version 1.96.7 <<EOF
+curl -fsSlL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
+
+# Use pseudo-tty so --init wizard works
+script -q -c "bash install-linux.sh --version 1.96.7 --init" /dev/null <<EOF
 y
 $BP_LICENSE_KEY
 y
@@ -45,10 +48,14 @@ local
 y
 EOF
 
-echo "===== BINDPLANE SERVER INSTALLED AND INITIALIZED ====="
+rm -f install-linux.sh
+ROOT
+
+########################
+# START SERVICE
+########################
 sudo systemctl enable bindplane
 sudo systemctl restart bindplane
 
-echo "===== FINAL STATUS ====="
-systemctl is-active postgresql
+echo "===== INSTALL COMPLETE ====="
 systemctl is-active bindplane
