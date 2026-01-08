@@ -29,8 +29,12 @@ sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" |
 echo "===== INSTALLING BINDPLANE SERVER ====="
 cd /tmp
 curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-bash install-linux.sh --version 1.96.7 --init
+bash install-linux.sh --version 1.96.7
 rm install-linux.sh
+
+which bindplane
+ls -l /usr/bin/bindplane
+
 
 echo "===== INITIALIZING BINDPLANE SERVER (AUTOMATED) ====="
 sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
