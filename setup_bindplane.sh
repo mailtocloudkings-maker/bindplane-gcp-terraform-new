@@ -9,6 +9,7 @@ BP_LICENSE_KEY="$5"
 
 # Install PostgreSQL
 apt-get update -y
+apt-get install -y curl apt-transport-https gnupg lsb-release
 apt-get install -y postgresql postgresql-contrib curl
 
 systemctl enable postgresql
