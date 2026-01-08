@@ -62,7 +62,7 @@ jobs:
           chmod 600 temp_vm_key.pem
 
           echo "Uploading BindPlane installation script to VM..."
-          scp -o StrictHostKeyChecking=no -i temp_vm_key.pem install_bindplane.sh ubuntu@$VM_IP:~
+          scp -o StrictHostKeyChecking=no -i temp_vm_key.pem setup_bindplane.sh ubuntu@$VM_IP:~
 
           echo "Running BindPlane installation script on VM..."
           ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP \
