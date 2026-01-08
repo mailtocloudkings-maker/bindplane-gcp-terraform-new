@@ -29,12 +29,10 @@ sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" |
 echo "===== INSTALLING BINDPLANE SERVER ====="
 cd /tmp
 curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-bash install-linux.sh --version 1.96.7 --init
-rm install-linux.sh
 
-echo "===== INITIALIZING BINDPLANE NON-INTERACTIVELY ====="
-# Send Enter for default prompts, type only needed values
-BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
+# Run exactly the manual command but feed the license key and default values automatically
+bash install-linux.sh --version 1.96.7 --init <<EOF
+y
 $BP_LICENSE_KEY
 0.0.0.0
 3001
@@ -54,12 +52,12 @@ $DB_PASS
 local
 EOF
 
+rm install-linux.sh
+
 echo "===== ENABLE AND START BINDPLANE ====="
-systemctl enable bindplane
-systemctl restart bindplane
+sudo systemctl enable bindplane
+sudo systemctl restart bindplane
 
 echo "===== FINAL STATUS ====="
 systemctl is-active postgresql
 systemctl is-active bindplane
-
-ROOT
