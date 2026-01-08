@@ -8,24 +8,19 @@ BP_ADMIN_PASS="$4"
 BP_LICENSE_KEY="$5"
 
 echo "===== INSTALLING POSTGRESQL ====="
+sudo apt-get update -y
 sudo apt-get install -y postgresql postgresql-contrib
 
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
-echo "===== CREATING DATABASE AND USER ====="
-# Create user and database safely
-sudo -u postgres psql <<EOSQL
--- Create database if it does not exist
-DO \$\$
-BEGIN
-   IF NOT EXISTS (SELECT FROM pg_database WHERE datname = 'bindplane') THEN
-      CREATE DATABASE bindplane;
-   END IF;
-END
-\$\$;
+echo "===== CREATING DATABASE ====="
+# Create the database directly (not in DO block)
+sudo -u postgres psql -c "CREATE DATABASE bindplane;"
 
--- Create user if it does not exist
+echo "===== CREATING USER ====="
+# Create user safely
+sudo -u postgres psql <<EOSQL
 DO \$\$
 BEGIN
    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
@@ -33,11 +28,11 @@ BEGIN
    END IF;
 END
 \$\$;
+EOSQL
 
--- Grant privileges
+echo "===== GRANT PRIVILEGES ====="
+sudo -u postgres psql <<EOSQL
 GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER;
-
--- Set schema ownership
 \c bindplane
 GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;
 ALTER SCHEMA public OWNER TO $DB_USER;
