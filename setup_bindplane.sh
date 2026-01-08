@@ -8,8 +8,8 @@ BP_ADMIN_PASS="$4"
 BP_LICENSE_KEY="$5"
 
 echo "===== INSTALLING POSTGRESQL ====="
-apt-get update -y
-apt-get install -y postgresql postgresql-contrib curl
+sudo apt-get update -y
+sudo apt-get install -y postgresql postgresql-contrib curl
 
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
