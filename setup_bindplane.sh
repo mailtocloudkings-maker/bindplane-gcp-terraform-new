@@ -23,6 +23,9 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE bindplane TO $DB_USER
 sudo -u postgres psql -d bindplane -c "GRANT USAGE, CREATE ON SCHEMA public TO $DB_USER;"
 sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;"
 
+sudo apt-get install -y expect
+
+
 echo "===== INSTALLING BINDPLANE ====="
 sudo curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o /tmp/install-linux.sh
 sudo bash /tmp/install-linux.sh --version 1.96.7 --init || true
