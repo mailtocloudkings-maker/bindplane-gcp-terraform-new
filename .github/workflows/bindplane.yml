@@ -61,6 +61,16 @@ jobs:
           terraform output -raw ssh_private_key > temp_vm_key.pem
           chmod 600 temp_vm_key.pem
 
+          echo "Waiting for VM SSH to be ready..."
+          for i in {1..20}; do
+            if ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP "echo ok" 2>/dev/null; then
+              echo "✅ SSH is ready!"
+              break
+            fi
+            echo "SSH not ready yet, retrying in 10 seconds..."
+            sleep 10
+          done
+
           echo "Uploading BindPlane installation script to VM..."
           scp -o StrictHostKeyChecking=no -i temp_vm_key.pem setup_bindplane.sh ubuntu@$VM_IP:~
 
