@@ -8,10 +8,10 @@ BP_ADMIN_PASS="$4"
 BP_LICENSE_KEY="$5"
 
 echo "===== INSTALLING DEPENDENCIES ====="
-sudo apt-get update -y
+
 sudo apt-get install -y software-properties-common
 sudo add-apt-repository universe -y
-sudo apt-get update -y
+
 sudo apt-get install -y postgresql postgresql-contrib expect curl
 
 sudo systemctl enable postgresql
