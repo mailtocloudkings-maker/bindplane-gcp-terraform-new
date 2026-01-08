@@ -24,10 +24,11 @@ jobs:
       with:
         terraform_version: 1.6.6
 
-    - name: Auth GCP
+    - name: Authenticate to GCP
       run: |
-        echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
-        chmod 600 gcp-key.json
+      echo '${{ secrets.GCP_SA_KEY }}' > gcp-key.json
+      chmod 600 gcp-key.json
+       echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json" >> $GITHUB_ENV
 
     - name: Terraform Init
       run: terraform init -reconfigure
