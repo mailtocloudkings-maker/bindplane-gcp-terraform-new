@@ -29,32 +29,32 @@ sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;" |
 echo "===== INSTALLING BINDPLANE SERVER ====="
 cd /tmp
 curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-
-# Run exactly the manual command but feed the license key and default values automatically
-bash install-linux.sh --version 1.96.7 --init <<EOF
-y
-$BP_LICENSE_KEY
-0.0.0.0
-3001
-http://$(hostname -I | awk '{print $1}'):3001
-Single User
-$BP_ADMIN_USER
-$BP_ADMIN_PASS
-$BP_ADMIN_PASS
-postgres
-localhost
-5432
-bindplane
-disable
-100
-$DB_USER
-$DB_PASS
-local
-EOF
-
+bash install-linux.sh --version 1.96.7 --init
 rm install-linux.sh
 
-echo "===== ENABLE AND START BINDPLANE ====="
+echo "===== INITIALIZING BINDPLANE SERVER (AUTOMATED) ====="
+sudo BINDPLANE_CONFIG_HOME="/var/lib/bindplane" /usr/bin/bindplane init server --config /etc/bindplane/config.yaml <<EOF
+y                     # Confirm initialize server
+$BP_LICENSE_KEY       # License key
+y                     # Accept default for Server Host (can also pass VM_IP)
+3001                  # Server Port
+y                     # Accept default Remote URL
+$BP_ADMIN_USER        # Username
+$BP_ADMIN_PASS        # Password
+$BP_ADMIN_PASS        # Confirm password
+                       # Accept default Storage Type (postgres)
+                       # PostgreSQL Host default
+                       # PostgreSQL Port default
+                       # PostgreSQL Database Name default
+disable               # Postgres SSL mode
+100                   # Max DB connections
+$DB_USER               # PostgreSQL Username
+$DB_PASS               # PostgreSQL Password
+local                 # Event bus type
+y                     # Finish initialization
+EOF
+
+echo "===== STARTING BINDPLANE SERVICE ====="
 sudo systemctl enable bindplane
 sudo systemctl restart bindplane
 
