@@ -76,7 +76,7 @@ jobs:
 
           echo "Running BindPlane installation script on VM..."
           ssh -o StrictHostKeyChecking=no -i temp_vm_key.pem ubuntu@$VM_IP \
-            "bash ~/install_bindplane.sh \
+            "bash ~/setup_bindplane.sh \
               '${{ github.event.inputs.db_user }}' \
               '${{ github.event.inputs.db_pass }}' \
               '${{ github.event.inputs.bp_admin_user }}' \
