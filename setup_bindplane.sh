@@ -7,12 +7,14 @@ BP_ADMIN_USER="$3"
 BP_ADMIN_PASS="$4"
 BP_LICENSE_KEY="$5"
 
+echo "===== INSTALLING POSTGRESQL ====="
 apt-get update -y
 apt-get install -y postgresql postgresql-contrib curl
 
-systemctl enable postgresql
-systemctl start postgresql
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
 
+echo "===== CREATING DATABASE AND USER ====="
 sudo -u postgres psql <<EOF
 DO \$\$ BEGIN
 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
@@ -27,10 +29,15 @@ END IF;
 END \$\$;
 EOF
 
+echo "===== INSTALLING BINDPLANE SERVER ====="
 curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
 BINDPLANE_LICENSE_KEY="$BP_LICENSE_KEY" bash install-linux.sh --version 1.96.7 --init \
   --admin-user "$BP_ADMIN_USER" --admin-password "$BP_ADMIN_PASS"
 rm install-linux.sh
 
-systemctl enable bindplane-server
-systemctl restart bindplane-server
+sudo systemctl enable bindplane
+sudo systemctl restart bindplane
+
+echo "===== SERVICE STATUS ====="
+systemctl is-active postgresql
+systemctl is-active bindplane
