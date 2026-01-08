@@ -23,11 +23,10 @@ sudo -u postgres psql -d bindplane -c "ALTER SCHEMA public OWNER TO $DB_USER;"
 
 
 echo "===== INSTALLING BINDPLANE SERVER ====="
+sudo -i bash
 cd /tmp
 curl -fsSL https://storage.googleapis.com/bindplane-op-releases/bindplane/latest/install-linux.sh -o install-linux.sh
-
-# Feed interactive prompts automatically
-sudo bash install-linux.sh --version 1.96.7 <<EOF
+bash install-linux.sh --version 1.96.7 <<EOF
 y
 $BP_LICENSE_KEY
 y
