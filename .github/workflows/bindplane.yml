@@ -1,0 +1,67 @@
+name: BindPlane Full Infra Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id: { required: true }
+      region: { default: us-central1 }
+      zone: { default: us-central1-a }
+      vm_name: { required: true }
+      bucket_name: { required: true }
+      db_user: { required: true }
+      db_pass: { required: true }
+      bp_admin_user: { required: true }
+      bp_admin_pass: { required: true }
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Auth GCP
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/key.json" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        run: terraform init -reconfigure
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve \
+            -var="project_id=${{ inputs.project_id }}" \
+            -var="region=${{ inputs.region }}" \
+            -var="zone=${{ inputs.zone }}" \
+            -var="vm_name=${{ inputs.vm_name }}" \
+            -var="bucket_name=${{ inputs.bucket_name }}" \
+            -var="credentials_file=$(pwd)/key.json"
+
+      - name: Install PostgreSQL + BindPlane
+        run: |
+          VM_IP=$(terraform output -raw vm_external_ip)
+
+          ssh-keygen -t rsa -b 4096 -f id_rsa -N ""
+          terraform apply -auto-approve
+
+          scp -o StrictHostKeyChecking=no -i id_rsa setup_bindplane.sh ubuntu@$VM_IP:/home/ubuntu/
+
+          ssh -o StrictHostKeyChecking=no -i id_rsa ubuntu@$VM_IP "
+            chmod +x setup_bindplane.sh &&
+            sudo ./setup_bindplane.sh \
+              '${{ inputs.db_user }}' \
+              '${{ inputs.db_pass }}' \
+              '${{ inputs.bp_admin_user }}' \
+              '${{ inputs.bp_admin_pass }}' \
+              '${{ secrets.BINDPLANE_LICENSE_KEY }}'
+          "
+
+      - name: Summary
+        run: |
+          echo "VM IP: $(terraform output -raw vm_external_ip)"
+          echo "GCS Bucket: $(terraform output -raw gcs_bucket_name)"
